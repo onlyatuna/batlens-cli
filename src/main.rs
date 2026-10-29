@@ -85,6 +85,20 @@ fn eta_text(hours: f64) -> String {
     }
 }
 
+/// Percent text, `N/A` when unknown.
+fn pct_text(p: Option<u32>) -> String {
+    p.map_or("N/A".to_string(), |p| format!("{p}%"))
+}
+
+/// Capacity text; 0 means unknown (relative units, missing full-charge value).
+fn mwh_or_na(v: i64) -> String {
+    if v > 0 {
+        Mwh(v).to_string()
+    } else {
+        "N/A".to_string()
+    }
+}
+
 /// Time-left line for non-mixed packs; `dis_w` is the discharge power.
 fn time_left_line(s: &Sample, dis_w: f64) -> Option<String> {
     if dis_w >= 0.1 {
@@ -102,9 +116,10 @@ fn time_left_line(s: &Sample, dis_w: f64) -> Option<String> {
     if s.rate_mw < 0 {
         return Some("Time left: discharging, draw too low to estimate".into());
     }
-    if s.ac && (s.rate_mw > 100 || s.percent >= 99) {
+    let pct = s.percent.unwrap_or(0);
+    if s.ac && (s.rate_mw > 100 || pct >= 99) {
         // `rate_mw <= 100` only applies at `percent >= 99`.
-        let full = s.remaining_mwh >= s.full_mwh || s.percent >= 100 || s.rate_mw <= 100;
+        let full = s.remaining_mwh >= s.full_mwh || pct >= 100 || s.rate_mw <= 100;
         return Some(if full {
             "Time left: fully charged (100%)".into()
         } else {
@@ -135,10 +150,12 @@ fn print_status(s: &Sample, rep: Option<&Report>) {
         };
         println!("{} {dev_label}", lab("Device   :"));
         println!(
-            "{} {}%  {}  ({})",
+            "{} {}  {}  ({})",
             lab("Charge   :"),
-            s.percent,
-            charge_paint(&pct_bar(s.percent as f64, 20), s.percent as f64),
+            pct_text(s.percent),
+            s.percent.map_or(String::new(), |p| {
+                charge_paint(&pct_bar(p as f64, 20), p as f64).to_string()
+            }),
             if s.ac { "AC" } else { "battery" }
         );
         let pw = Mw(s.rate_mw).signed();
@@ -209,13 +226,13 @@ fn print_status(s: &Sample, rep: Option<&Report>) {
             };
             let pw = Mw(b.rate_mw).signed();
             println!(
-                "  [{}] {} ({}, {}) - {}%, {} / {} design, {}, {} (Health: {}, Cycles: {})",
+                "  [{}] {} ({}, {}) - {}, {} / {} design, {}, {} (Health: {}, Cycles: {})",
                 i + 1,
                 b.device,
                 b.manufacturer,
                 b.chemistry,
-                b.percent,
-                Mwh(b.full_mwh),
+                pct_text(b.percent),
+                mwh_or_na(b.full_mwh),
                 if b.design_mwh > 0 {
                     format!("{}", Mwh(b.design_mwh))
                 } else {
@@ -253,12 +270,12 @@ fn print_status(s: &Sample, rep: Option<&Report>) {
             Mw(s.rate_mw).signed()
         };
         println!(
-            "  Total : {}% | Mode: {} | Power: {} | Capacity: {} / {} design",
-            s.percent,
+            "  Total : {} | Mode: {} | Power: {} | Capacity: {} / {} design",
+            pct_text(s.percent),
             mode_str,
             pw_str,
-            Mwh(s.full_mwh),
-            Mwh(s.design_mwh)
+            mwh_or_na(s.full_mwh),
+            mwh_or_na(s.design_mwh)
         );
         if is_mixed {
             let dis_remaining_mwh: i64 = s
@@ -1210,7 +1227,7 @@ mod tests {
             manufacturer: "SMP".to_string(),
             serial_number: "SN-111".to_string(),
             chemistry: "LION".to_string(),
-            percent: 50,
+            percent: Some(50),
             remaining_mwh: 20000,
             full_mwh: 40000,
             design_mwh: 50000,
@@ -1225,7 +1242,7 @@ mod tests {
             manufacturer: "LGC".to_string(),
             serial_number: "SN-222".to_string(),
             chemistry: "LION".to_string(),
-            percent: 50,
+            percent: Some(50),
             remaining_mwh: 10000,
             full_mwh: 20000,
             design_mwh: 25000,
@@ -1240,7 +1257,7 @@ mod tests {
         assert_eq!(sample.remaining_mwh, 30000);
         assert_eq!(sample.full_mwh, 60000);
         assert_eq!(sample.design_mwh, 75000);
-        assert_eq!(sample.percent, 50);
+        assert_eq!(sample.percent, Some(50));
         assert_eq!(sample.rate_mw, -15000);
         assert_eq!(sample.dis_w, 15.0);
         assert_eq!(sample.gross_dis_w, 15.0);
@@ -1257,7 +1274,7 @@ mod tests {
             manufacturer: "SMP".to_string(),
             serial_number: "SN-111".to_string(),
             chemistry: "LION".to_string(),
-            percent: 50,
+            percent: Some(50),
             remaining_mwh: 20000,
             full_mwh: 40000,
             design_mwh: 50000,
@@ -1271,7 +1288,7 @@ mod tests {
             manufacturer: "LGC".to_string(),
             serial_number: "SN-222".to_string(),
             chemistry: "LION".to_string(),
-            percent: 50,
+            percent: Some(50),
             remaining_mwh: 10000,
             full_mwh: 20000,
             design_mwh: 25000,
@@ -1499,7 +1516,7 @@ mod tests {
             manufacturer: "SMP".to_string(),
             serial_number: "SN-111".to_string(),
             chemistry: "LION".to_string(),
-            percent: 85,
+            percent: Some(85),
             remaining_mwh: 42500,
             full_mwh: 50000,
             design_mwh: 52000,
@@ -1534,7 +1551,7 @@ mod tests {
         );
         let sample = res4.unwrap();
         assert_eq!(sample.batteries.len(), 1);
-        assert_eq!(sample.percent, 85);
+        assert_eq!(sample.percent, Some(85));
         assert_eq!(sample.remaining_mwh, 42500);
     }
     #[test]
@@ -1571,7 +1588,7 @@ mod tests {
         assert_eq!(unit.design_mwh, 0);
         assert_eq!(unit.voltage_mv, 0);
         assert_eq!(unit.rate_mw, 0);
-        assert_eq!(unit.percent, 0, "Percent must not divide by zero");
+        assert_eq!(unit.percent, None, "Percent must not divide by zero");
         assert_eq!(unit.cycle_count, None, "Sentinel cycle count must be None");
         assert_eq!(unit.low_alert_mwh, 0);
         assert_eq!(unit.crit_alert_mwh, 0);
@@ -1614,7 +1631,7 @@ mod tests {
         );
         assert!(ac_chg);
         assert_eq!(unit_chg.rate_mw, 18500);
-        assert_eq!(unit_chg.percent, 50);
+        assert_eq!(unit_chg.percent, Some(50));
         assert_eq!(unit_chg.cycle_count, Some(120));
         assert_eq!(unit_chg.low_alert_mwh, 2500);
         assert_eq!(unit_chg.crit_alert_mwh, 1000);
@@ -2025,7 +2042,7 @@ mod tests {
         };
         let s = Sample {
             batteries: vec![b],
-            percent: 60,
+            percent: Some(60),
             ac: true, // Connected to AC
             remaining_mwh: 30000,
             full_mwh: 50000,
@@ -2398,7 +2415,7 @@ mod tests {
             "OEM".to_string(),
             "SN-123".to_string(),
         );
-        assert_eq!(unit.percent, 85);
+        assert_eq!(unit.percent, Some(85));
         assert_eq!(unit.remaining_mwh, 0, "Relative capacity must clear mWh");
         assert_eq!(unit.full_mwh, 0);
         assert_eq!(unit.design_mwh, 0);
@@ -2429,16 +2446,16 @@ mod tests {
                 .0
                 .percent
         };
-        assert_eq!(mk(40, 80), 50);
-        assert_eq!(mk(40, BATTERY_UNKNOWN_CAPACITY), 40);
-        assert_eq!(mk(0, 80), 0);
+        assert_eq!(mk(40, 80), Some(50));
+        assert_eq!(mk(40, BATTERY_UNKNOWN_CAPACITY), None);
+        assert_eq!(mk(0, 80), Some(0));
     }
 
     #[test]
     fn test_cache_not_applied_to_relative_unit() {
         let unit = BatteryUnit {
             device: "BAT0".to_string(),
-            percent: 85,
+            percent: Some(85),
             ..Default::default()
         };
         let cache = DesignCapacityCache {
@@ -2450,7 +2467,7 @@ mod tests {
         s.apply_design_capacity_cache(&cache);
         assert_eq!(s.batteries[0].design_mwh, 0);
         assert_eq!(s.design_mwh, 0);
-        assert_eq!(s.percent, 85);
+        assert_eq!(s.percent, Some(85));
     }
 
     #[test]
@@ -2458,11 +2475,11 @@ mod tests {
         let abs = BatteryUnit {
             remaining_mwh: 20000,
             full_mwh: 40000,
-            percent: 50,
+            percent: Some(50),
             ..Default::default()
         };
         let rel = BatteryUnit {
-            percent: 90,
+            percent: Some(90),
             ..Default::default()
         };
         let s = build_sample(vec![abs, rel], false);
@@ -2606,7 +2623,7 @@ mod tests {
             "OEM".to_string(),
             "SN-123".to_string(),
         );
-        assert_eq!(unit.percent, 75);
+        assert_eq!(unit.percent, Some(75));
         assert_eq!(
             unit.rate_mw, 0,
             "Rate must be zeroed for relative-capacity batteries"
@@ -2847,11 +2864,25 @@ mod tests {
         assert_eq!(s.design_mwh, 0);
     }
 
+    #[test]
+    fn test_unknown_totals_render_na() {
+        let unknown = |p| BatteryUnit {
+            percent: p,
+            ..Default::default()
+        };
+        let s = build_sample(vec![unknown(Some(50)), unknown(None)], false);
+        assert_eq!(s.percent, None);
+        assert_eq!(pct_text(s.percent), "N/A");
+        assert_eq!(mwh_or_na(s.full_mwh), "N/A");
+        assert_eq!(pct_text(Some(7)), "7%");
+        assert_eq!(mwh_or_na(52440), "52.4 Wh");
+    }
+
     fn tl_sample(ac: bool, rate_mw: i64, percent: u32, rem: i64) -> Sample {
         Sample {
             ac,
             rate_mw,
-            percent,
+            percent: Some(percent),
             remaining_mwh: rem,
             full_mwh: 50000,
             ..Default::default()

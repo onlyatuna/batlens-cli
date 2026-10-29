@@ -185,7 +185,7 @@ pub struct BatteryUnit {
     pub manufacturer: String,
     pub chemistry: String,
     pub serial_number: String,
-    pub percent: u32,
+    pub percent: Option<u32>,
     pub voltage_mv: u32,
     pub remaining_mwh: i64,
     pub full_mwh: i64,
@@ -199,7 +199,7 @@ pub struct BatteryUnit {
 #[derive(Debug, Default)]
 pub struct Sample {
     pub batteries: Vec<BatteryUnit>,
-    pub percent: u32,
+    pub percent: Option<u32>,
     pub ac: bool,
     pub remaining_mwh: i64,
     pub full_mwh: i64,

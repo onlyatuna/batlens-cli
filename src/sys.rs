@@ -554,12 +554,9 @@ pub fn parse_battery_unit_data(
     };
     let is_relative = (info.capabilities & BATTERY_CAPACITY_RELATIVE) != 0;
     let percent = if full_mwh > 0 {
-        ((100.0 * remaining_mwh as f64 / full_mwh as f64).round() as u32).min(100)
-    } else if is_relative {
-        // Full capacity unknown: relative values are conventionally on a 0-100 scale.
-        (remaining_mwh as u32).min(100)
+        Some(((100.0 * remaining_mwh as f64 / full_mwh as f64).round() as u32).min(100))
     } else {
-        0
+        None
     };
     let design_mwh = if is_relative || info.designed_capacity == BATTERY_UNKNOWN_CAPACITY {
         0
@@ -674,11 +671,11 @@ pub fn build_sample(batteries: Vec<BatteryUnit>, any_ac: bool) -> Sample {
         total_full = 0;
     }
     let percent = if total_full > 0 {
-        ((100.0 * total_remaining as f64 / total_full as f64).round() as u32).min(100)
+        Some(((100.0 * total_remaining as f64 / total_full as f64).round() as u32).min(100))
     } else if batteries.len() == 1 {
         batteries[0].percent
     } else {
-        0
+        None
     };
     let dis_w = if total_rate < 0 {
         -total_rate as f64 / 1000.0
