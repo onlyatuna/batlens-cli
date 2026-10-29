@@ -2405,6 +2405,41 @@ mod tests {
     }
 
     #[test]
+    fn test_cache_not_applied_to_relative_unit() {
+        let unit = BatteryUnit {
+            device: "BAT0".to_string(),
+            percent: 85,
+            ..Default::default()
+        };
+        let cache = DesignCapacityCache {
+            total: 50000,
+            modules: [("bat0".to_string(), 50000)].into(),
+            ..Default::default()
+        };
+        let mut s = build_sample(vec![unit], false);
+        s.apply_design_capacity_cache(&cache);
+        assert_eq!(s.batteries[0].design_mwh, 0);
+        assert_eq!(s.design_mwh, 0);
+        assert_eq!(s.percent, 85);
+    }
+
+    #[test]
+    fn test_mixed_units_total_is_unknown() {
+        let abs = BatteryUnit {
+            remaining_mwh: 20000,
+            full_mwh: 40000,
+            percent: 50,
+            ..Default::default()
+        };
+        let rel = BatteryUnit {
+            percent: 90,
+            ..Default::default()
+        };
+        let s = build_sample(vec![abs, rel], false);
+        assert_eq!(s.full_mwh, 0);
+        assert_eq!(s.remaining_mwh, 0);
+    }
+    #[test]
     fn test_find_battery_replacement_day_one_tail_jump() {
         use chrono::TimeZone;
         let t0 = Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap();

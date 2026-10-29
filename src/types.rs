@@ -367,6 +367,11 @@ pub fn is_valid_serial(sn: &str) -> bool {
 
 impl DesignCapacityCache {
     pub fn lookup(&self, unit: &BatteryUnit) -> Option<i64> {
+        // Without a live full-charge value (relative units, unknown capacity) health would
+        // be 0 / design, and the cache cannot be validated.
+        if unit.full_mwh <= 0 {
+            return None;
+        }
         let is_stale_or_mismatched = |dc: i64| -> bool {
             // Full charge more than 120% of the cached design capacity: cache is stale.
             unit.full_mwh > 0 && unit.full_mwh > dc * 12 / 10

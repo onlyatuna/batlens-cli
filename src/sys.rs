@@ -666,6 +666,12 @@ pub fn build_sample(batteries: Vec<BatteryUnit>, any_ac: bool) -> Sample {
         }
     }
 
+    // A module without full-charge capacity makes mWh totals partial: report them as unknown.
+    let complete = batteries.iter().all(|b| b.full_mwh > 0);
+    if !complete {
+        total_remaining = 0;
+        total_full = 0;
+    }
     let percent = if total_full > 0 {
         ((100.0 * total_remaining as f64 / total_full as f64).round() as u32).min(100)
     } else if batteries.len() == 1 {
