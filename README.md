@@ -1,6 +1,6 @@
-# batlens
+# batlens-cli
 
-Windows laptop battery monitor, written in Rust.
+Windows laptop battery monitor, written in Rust. The executable is `batlens`.
 
 `status` reads the battery through Win32 ACPI/IOCTL, without WMI, PowerShell or COM.
 `report`, `chart` and `info` read history, wear trend and hardware details from the Windows
@@ -37,8 +37,8 @@ Windows only. Requires Rust 1.88 or newer.
 ### Get the source
 
 ```cmd
-git clone https://github.com/onlyatuna/batlens.git
-cd batlens
+git clone https://github.com/onlyatuna/batlens-cli.git
+cd batlens-cli
 ```
 
 ### Build

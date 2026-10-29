@@ -1,12 +1,17 @@
 [package]
-name = "batlens"
+name = "batlens-cli"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.88"
 authors = ["Evan Chen <evanchen940628@gmail.com>"]
-description = "Lightweight native Windows laptop battery monitor and diagnostics tool"
+description = "Windows laptop battery monitor CLI"
 license = "MIT"
 readme = "README.md"
+
+[[bin]]
+name = "batlens"
+path = "src/main.rs"
+
 [dependencies]
 chrono = "0.4.45"
 clap = { version = "4.6.7", features = ["derive"] }
