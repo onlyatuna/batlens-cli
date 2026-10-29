@@ -1,0 +1,24 @@
+# Rust build artifacts
+/target/
+
+# Windows binaries and compiler output
+*.exe
+*.pdb
+*.obj
+*.lib
+*.dll
+
+# Local runtime cache
+.design_capacity
+*.tmp
+*.tmp.*
+
+# Archive bundles
+*.7z
+*.zip
+
+# IDE and OS metadata
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini
