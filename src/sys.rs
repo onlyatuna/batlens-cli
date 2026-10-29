@@ -553,7 +553,7 @@ pub fn parse_battery_unit_data(
         status.capacity as i64
     };
     let is_relative = (info.capabilities & BATTERY_CAPACITY_RELATIVE) != 0;
-    let percent = if full_mwh > 0 {
+    let percent = if full_mwh > 0 && status.capacity != BATTERY_UNKNOWN_CAPACITY {
         Some(((100.0 * remaining_mwh as f64 / full_mwh as f64).round() as u32).min(100))
     } else {
         None
@@ -664,8 +664,11 @@ pub fn build_sample(batteries: Vec<BatteryUnit>, any_ac: bool) -> Sample {
         }
     }
 
-    // A module without full-charge capacity makes mWh totals partial: report them as unknown.
-    let complete = batteries.iter().all(|b| b.full_mwh > 0);
+    // A module without full-charge or remaining capacity makes mWh totals partial: report
+    // them as unknown.
+    let complete = batteries
+        .iter()
+        .all(|b| b.full_mwh > 0 && b.percent.is_some());
     if !complete {
         total_remaining = 0;
         total_full = 0;

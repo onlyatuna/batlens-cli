@@ -102,6 +102,8 @@ fn mwh_or_na(v: i64) -> String {
 /// Time-left line for non-mixed packs; `dis_w` is the discharge power.
 fn time_left_line(s: &Sample, dis_w: f64) -> Option<String> {
     if dis_w >= 0.1 {
+        // Remaining capacity is unreliable when percent is unknown.
+        s.percent?;
         let hours = s.remaining_mwh as f64 / 1000.0 / dis_w;
         let tail = if s.ac {
             " (discharging while on AC power)"
@@ -2862,6 +2864,33 @@ mod tests {
         s.apply_design_capacity_cache(&derivation_cache(55000, 2));
         assert_eq!(s.batteries[1].design_mwh, 0);
         assert_eq!(s.design_mwh, 0);
+    }
+
+    #[test]
+    fn test_unknown_remaining_is_not_zero_percent() {
+        let status = BatteryStatus {
+            power_state: 0,
+            capacity: BATTERY_UNKNOWN_CAPACITY,
+            voltage: 12000,
+            rate: -15000,
+        };
+        let info = BatteryInformation {
+            capabilities: 0,
+            technology: 1,
+            reserved: [0; 3],
+            chemistry: *b"LION",
+            designed_capacity: 52000,
+            full_charged_capacity: 50000,
+            default_alert1: 0,
+            default_alert2: 0,
+            critical_bias: 0,
+            cycle_count: 0,
+        };
+        let (unit, _) = parse_battery_unit_data(&status, &info, "B".into(), "M".into(), "S".into());
+        assert_eq!(unit.percent, None);
+        let s = build_sample(vec![unit], false);
+        assert_eq!(s.percent, None);
+        assert_eq!(time_left_line(&s, s.dis_w), None);
     }
 
     #[test]
