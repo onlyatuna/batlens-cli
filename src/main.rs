@@ -448,7 +448,7 @@ fn cmd_info() -> Result<(), BatlensError> {
         };
         println!("    {} {}", lab("Design Cap   :"), detail(b.design_mwh));
         // Remaining is meaningless without a full-charge value (relative units).
-        let remaining = if b.full_mwh > 0 {
+        let remaining = if b.percent.is_some() {
             detail(b.remaining_mwh)
         } else {
             "N/A".to_string()
