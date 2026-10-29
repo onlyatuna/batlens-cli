@@ -119,7 +119,9 @@ fn time_left_line(s: &Sample, dis_w: f64) -> Option<String> {
     let pct = s.percent.unwrap_or(0);
     if s.ac && (s.rate_mw > 100 || pct >= 99) {
         // `rate_mw <= 100` only applies at `percent >= 99`.
-        let full = s.remaining_mwh >= s.full_mwh || pct >= 100 || s.rate_mw <= 100;
+        // Unknown percent never counts as full.
+        let full = s.percent.is_some()
+            && (s.remaining_mwh >= s.full_mwh || pct >= 100 || s.rate_mw <= 100);
         return Some(if full {
             "Time left: fully charged (100%)".into()
         } else {
@@ -186,7 +188,7 @@ fn print_status(s: &Sample, rep: Option<&Report>) {
                 health_paint(&pct_bar(hv, 20), hv)
             );
         } else {
-            println!("{} {}", lab("Capacity :"), Mwh(s.full_mwh));
+            println!("{} {}", lab("Capacity :"), mwh_or_na(s.full_mwh));
             println!(
                 "{} N/A (run 'batlens report' to fetch design capacity)",
                 lab("Health   :")
@@ -435,24 +437,22 @@ fn cmd_info() -> Result<(), BatlensError> {
                 }
             );
         }
-        println!(
-            "    {} {} ({} mWh)",
-            lab("Design Cap   :"),
-            Mwh(b.design_mwh),
-            b.design_mwh
-        );
-        println!(
-            "    {} {} ({} mWh)",
-            lab("Remaining    :"),
-            Mwh(b.remaining_mwh),
-            b.remaining_mwh
-        );
-        println!(
-            "    {} {} ({} mWh)",
-            lab("Full Charge  :"),
-            Mwh(b.full_mwh),
-            b.full_mwh
-        );
+        let detail = |v: i64| {
+            if v > 0 {
+                format!("{} ({v} mWh)", Mwh(v))
+            } else {
+                "N/A".to_string()
+            }
+        };
+        println!("    {} {}", lab("Design Cap   :"), detail(b.design_mwh));
+        // Remaining is meaningless without a full-charge value (relative units).
+        let remaining = if b.full_mwh > 0 {
+            detail(b.remaining_mwh)
+        } else {
+            "N/A".to_string()
+        };
+        println!("    {} {remaining}", lab("Remaining    :"));
+        println!("    {} {}", lab("Full Charge  :"), detail(b.full_mwh));
         if b.design_mwh > 0 {
             let hv = 100.0 * b.full_mwh as f64 / b.design_mwh as f64;
             let hs = format!("{:.1}%", hv);
@@ -2876,6 +2876,25 @@ mod tests {
         assert_eq!(mwh_or_na(s.full_mwh), "N/A");
         assert_eq!(pct_text(Some(7)), "7%");
         assert_eq!(mwh_or_na(52440), "52.4 Wh");
+    }
+
+    #[test]
+    fn test_unknown_percent_never_reports_fully_charged() {
+        let s = Sample {
+            ac: true,
+            rate_mw: 50,
+            ..Default::default()
+        };
+        assert!(time_left_line(&s, 0.0).is_none());
+        let s = Sample {
+            ac: true,
+            rate_mw: 5000,
+            ..Default::default()
+        };
+        assert_eq!(
+            time_left_line(&s, 0.0).as_deref(),
+            Some("Time left: charging")
+        );
     }
 
     fn tl_sample(ac: bool, rate_mw: i64, percent: u32, rem: i64) -> Sample {
