@@ -668,6 +668,8 @@ pub fn build_sample(batteries: Vec<BatteryUnit>, any_ac: bool) -> Sample {
 
     let percent = if total_full > 0 {
         ((100.0 * total_remaining as f64 / total_full as f64).round() as u32).min(100)
+    } else if batteries.len() == 1 {
+        batteries[0].percent
     } else {
         0
     };

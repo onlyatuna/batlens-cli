@@ -16,7 +16,7 @@ use chrono::{Local, Utc};
 use clap::{Parser, Subcommand};
 use colored::Colorize;
 
-use crate::render::{health_paint, visual_width};
+use crate::render::{charge_paint, health_paint, lab, pct_bar, title, visual_width};
 use crate::stats::{clean_history, compute_wear, find_battery_replacement};
 use crate::sys::{ConsoleGuard, sample};
 use crate::types::*;
@@ -117,6 +117,14 @@ fn time_left_line(s: &Sample, dis_w: f64) -> Option<String> {
     None
 }
 
+/// Prints a `Time left: ...` line with a dim label.
+fn print_time_left(line: &str) {
+    match line.strip_prefix("Time left: ") {
+        Some(rest) => println!("{} {rest}", lab("Time left:")),
+        None => println!("{line}"),
+    }
+}
+
 fn print_status(s: &Sample, rep: Option<&Report>) {
     if s.batteries.len() == 1 {
         let b = &s.batteries[0];
@@ -125,10 +133,12 @@ fn print_status(s: &Sample, rep: Option<&Report>) {
         } else {
             format!("{} ({}, {})", b.device, b.manufacturer, b.chemistry)
         };
-        println!("Device   : {dev_label}");
+        println!("{} {dev_label}", lab("Device   :"));
         println!(
-            "Charge   : {}%  ({})",
+            "{} {}%  {}  ({})",
+            lab("Charge   :"),
             s.percent,
+            charge_paint(&pct_bar(s.percent as f64, 20), s.percent as f64),
             if s.ac { "AC" } else { "battery" }
         );
         let pw = Mw(s.rate_mw).signed();
@@ -139,30 +149,42 @@ fn print_status(s: &Sample, rep: Option<&Report>) {
         } else {
             pw
         };
-        println!("Power    : {pw}  (negative = discharging)");
+        println!("{} {pw}  (negative = discharging)", lab("Power    :"));
         if b.voltage_mv > 0 {
-            println!("Voltage  : {}", Mv(b.voltage_mv));
+            println!("{} {}", lab("Voltage  :"), Mv(b.voltage_mv));
         }
         if s.design_mwh > 0 {
             println!(
-                "Capacity : {} / {} design",
+                "{} {} / {} design",
+                lab("Capacity :"),
                 Mwh(s.full_mwh),
                 Mwh(s.design_mwh)
             );
             let hv = 100.0 * s.full_mwh as f64 / s.design_mwh as f64;
             let hs = format!("{:.1}%", hv);
-            println!("Health   : {}", health_paint(&hs, hv));
+            println!(
+                "{} {}  {}",
+                lab("Health   :"),
+                health_paint(&hs, hv),
+                health_paint(&pct_bar(hv, 20), hv)
+            );
         } else {
-            println!("Capacity : {}", Mwh(s.full_mwh));
-            println!("Health   : N/A (run 'batlens report' to fetch design capacity)");
+            println!("{} {}", lab("Capacity :"), Mwh(s.full_mwh));
+            println!(
+                "{} N/A (run 'batlens report' to fetch design capacity)",
+                lab("Health   :")
+            );
         }
         if let Some(line) = time_left_line(s, s.dis_w) {
-            println!("{line}");
+            print_time_left(&line);
         }
     } else {
         println!(
-            "Multiple Batteries Detected ({} modules):",
-            s.batteries.len()
+            "{}",
+            title(&format!(
+                "Multiple Batteries Detected ({} modules):",
+                s.batteries.len()
+            ))
         );
         for (i, b) in s.batteries.iter().enumerate() {
             let h = if b.design_mwh > 0 {
@@ -249,7 +271,8 @@ fn print_status(s: &Sample, rep: Option<&Report>) {
                 let hours = dis_remaining_mwh as f64 / 1000.0 / s.gross_dis_w;
                 let note = if s.ac { " (on AC power)" } else { "" };
                 println!(
-                    "Time left: {} until active pack depletes (drawing {}; net draw {}){}",
+                    "{} {} until active pack depletes (drawing {}; net draw {}){}",
+                    lab("Time left:"),
                     eta_text(hours),
                     Watts(s.gross_dis_w),
                     Mw(s.rate_mw).signed(),
@@ -258,7 +281,7 @@ fn print_status(s: &Sample, rep: Option<&Report>) {
             }
         } else if let Some(line) = time_left_line(s, s.gross_dis_w) {
             // `rate_mw` (net) picks the state; `gross_dis_w` is the runtime basis.
-            println!("{line}");
+            print_time_left(&line);
         }
     }
 }
@@ -331,24 +354,27 @@ fn cmd_info() -> Result<(), BatlensError> {
     let s = sample()?;
     let rep = read_cached_report();
 
-    println!("System & Battery Info\n");
+    println!("{}\n", title("System & Battery Info"));
     if let Some(r) = &rep {
         if let Some(prod) = &r.system_product {
-            println!("  Product Model  : {prod}");
+            println!("  {} {prod}", lab("Product Model  :"));
         }
         if let Some(mfg) = &r.system_mfg {
-            println!("  Manufacturer   : {mfg}");
+            println!("  {} {mfg}", lab("Manufacturer   :"));
         }
         if let Some(bios) = &r.bios_version {
             let date = r.bios_date.as_deref().unwrap_or("");
             if !date.is_empty() {
-                println!("  BIOS Version   : {bios} ({date})");
+                println!("  {} {bios} ({date})", lab("BIOS Version   :"));
             } else {
-                println!("  BIOS Version   : {bios}");
+                println!("  {} {bios}", lab("BIOS Version   :"));
             }
         }
         if r.connected_standby {
-            println!("  Standby Mode   : Modern Standby (S0ix supported)");
+            println!(
+                "  {} Modern Standby (S0ix supported)",
+                lab("Standby Mode   :")
+            );
         }
     }
 
@@ -357,9 +383,9 @@ fn cmd_info() -> Result<(), BatlensError> {
             .as_ref()
             .and_then(|r| find_matching_report_battery(b, r, i));
         let prefix = if s.batteries.len() > 1 {
-            format!("  [Battery {}] ", i + 1)
+            format!("  {} ", lab(&format!("[Battery {}]", i + 1)))
         } else {
-            "  Battery Module : ".to_string()
+            format!("  {} ", lab("Battery Module :"))
         };
         println!("{prefix}{} ({}, {})", b.device, b.manufacturer, b.chemistry);
         let sn = if !b.serial_number.is_empty() {
@@ -370,18 +396,20 @@ fn cmd_info() -> Result<(), BatlensError> {
                 .filter(|s| !s.is_empty())
         };
         if let Some(s_num) = sn {
-            println!("    Serial Number: {s_num}");
+            println!("    {} {s_num}", lab("Serial Number:"));
         }
         if b.voltage_mv > 0 {
             println!(
-                "    Live Voltage : {} ({})",
+                "    {} {} ({})",
+                lab("Live Voltage :"),
                 Mv(b.voltage_mv),
                 if s.ac { "on AC power" } else { "on battery" }
             );
         }
         if b.rate_mw != 0 {
             println!(
-                "    Live Power   : {} ({})",
+                "    {} {} ({})",
+                lab("Live Power   :"),
                 Mw(b.rate_mw).signed(),
                 if b.rate_mw > 0 {
                     "charging"
@@ -391,26 +419,29 @@ fn cmd_info() -> Result<(), BatlensError> {
             );
         }
         println!(
-            "    Design Cap   : {} ({} mWh)",
+            "    {} {} ({} mWh)",
+            lab("Design Cap   :"),
             Mwh(b.design_mwh),
             b.design_mwh
         );
         println!(
-            "    Remaining    : {} ({} mWh)",
+            "    {} {} ({} mWh)",
+            lab("Remaining    :"),
             Mwh(b.remaining_mwh),
             b.remaining_mwh
         );
         println!(
-            "    Full Charge  : {} ({} mWh)",
+            "    {} {} ({} mWh)",
+            lab("Full Charge  :"),
             Mwh(b.full_mwh),
             b.full_mwh
         );
         if b.design_mwh > 0 {
             let hv = 100.0 * b.full_mwh as f64 / b.design_mwh as f64;
             let hs = format!("{:.1}%", hv);
-            println!("    Health       : {}", health_paint(&hs, hv));
+            println!("    {} {}", lab("Health       :"), health_paint(&hs, hv));
         } else {
-            println!("    Health       : N/A");
+            println!("    {} N/A", lab("Health       :"));
         }
         let cycle = b.cycle_count.or_else(|| {
             matched_rep.and_then(|rb| rb.cycle_count).or_else(|| {
@@ -426,10 +457,11 @@ fn cmd_info() -> Result<(), BatlensError> {
             Some(c) => c.to_string(),
             None => "Unknown".to_string(),
         };
-        println!("    Cycle Count  : {cycle_str}");
+        println!("    {} {cycle_str}", lab("Cycle Count  :"));
         if b.low_alert_mwh > 0 || b.crit_alert_mwh > 0 {
             println!(
-                "    Alert Levels : Low {}, Critical {}",
+                "    {} Low {}, Critical {}",
+                lab("Alert Levels :"),
                 Mwh(b.low_alert_mwh as i64),
                 Mwh(b.crit_alert_mwh as i64)
             );
@@ -463,7 +495,10 @@ fn cmd_report(days: u32, target: f64, all: bool) -> Result<(), BatlensError> {
         _ => None,
     };
 
-    println!("Battery report  (Windows battery report, cached 10 min)\n");
+    println!(
+        "{}\n",
+        title("Battery report  (Windows battery report, cached 10 min)")
+    );
 
     let pad = |cell: &dyn std::fmt::Display, plain: &str, w: usize| {
         format!(
@@ -472,7 +507,7 @@ fn cmd_report(days: u32, target: f64, all: bool) -> Result<(), BatlensError> {
         )
     };
     let row = |label: &str, cell: &dyn std::fmt::Display, plain: &str, tail: &str| {
-        let l = pad(&label, label, 16);
+        let l = pad(&lab(label), label, 16);
         let c = pad(cell, plain, 14);
         println!("  {l}{c}{tail}");
     };
@@ -548,6 +583,11 @@ fn cmd_report(days: u32, target: f64, all: bool) -> Result<(), BatlensError> {
             )
         };
         row("Health", &health_paint(&v, now), &v, &tail);
+        println!(
+            "  {}{}",
+            " ".repeat(16),
+            health_paint(&pct_bar(now, 20), now)
+        );
 
         let t_now = Utc::now();
         let days_span = (t_now - t_base).num_seconds() as f64 / 86400.0;
@@ -738,6 +778,7 @@ mod tests {
     use crate::sys::*;
     use crate::xml::*;
     use chrono::DateTime;
+    use chrono::TimeZone;
     use std::fs;
     use windows_sys::Win32::Foundation::INVALID_HANDLE_VALUE;
     use windows_sys::Win32::System::Console::{
@@ -812,7 +853,7 @@ mod tests {
     fn test_aggregate_drains_multi_day_split() {
         use chrono::TimeZone;
         // Segment 23:00 to 07:00 next day: 8 h, 32000 mWh, 4 W.
-        let t0 = Local
+        let t0 = chrono::Local
             .with_ymd_and_hms(2026, 10, 23, 23, 0, 0)
             .unwrap()
             .with_timezone(&Utc);
@@ -2301,7 +2342,11 @@ mod tests {
 
     #[test]
     fn test_aggregate_drains_ignores_sub10s_and_impossible_spikes() {
-        let t0 = Utc::now();
+        // Fixed local noon: `Utc::now()` splits across two local days near midnight.
+        let t0 = chrono::Local
+            .with_ymd_and_hms(2026, 1, 15, 12, 0, 0)
+            .unwrap()
+            .with_timezone(&Utc);
         let t_glitch = t0 + chrono::TimeDelta::seconds(2); // 500 mWh in 2 s = 900 kW
         let t_real = t0 + chrono::TimeDelta::hours(1); // 15000 mWh in 1 h = 15 W
 
@@ -2801,5 +2846,15 @@ mod tests {
         };
         s.apply_design_capacity_cache(&derivation_cache(52000, 1));
         assert_eq!(s.batteries[0].design_mwh, 0);
+    }
+
+    #[test]
+    fn test_pct_bar_fill_and_clamping() {
+        assert_eq!(pct_bar(0.0, 4), "░░░░");
+        assert_eq!(pct_bar(50.0, 4), "██░░");
+        assert_eq!(pct_bar(100.0, 4), "████");
+        assert_eq!(pct_bar(250.0, 4), "████");
+        assert_eq!(pct_bar(-5.0, 4), "░░░░");
+        assert_eq!(pct_bar(85.1, 20).chars().count(), 20);
     }
 }

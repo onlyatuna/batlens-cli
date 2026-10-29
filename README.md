@@ -85,7 +85,7 @@ batlens chart --ascii   Block-character chart for fonts without braille glyphs
 
 - **History source**: Windows' own battery report, cached for 10 minutes. `status` never runs
   `powercfg`; if no cached report exists, design capacity and health show `N/A` until you run
-  `report`, `chart` or `info`.
+  `report`. `chart` and `info` do not update that cache.
 - **Multiple batteries**: each module is queried separately. A missing design capacity is derived
   from the cached report only when the value is plausible, otherwise it stays `N/A`. If a module
   reports no full-charge capacity, the total stays `N/A`.

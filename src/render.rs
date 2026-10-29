@@ -17,6 +17,33 @@ pub fn health_paint(s: &str, v: f64) -> ColoredString {
     }
 }
 
+/// Section title: bold cyan.
+pub fn title(s: &str) -> ColoredString {
+    s.bold().cyan()
+}
+
+/// Row label: dim.
+pub fn lab(s: &str) -> ColoredString {
+    s.dimmed()
+}
+
+/// Charge level colour: red below 20%, yellow below 50%, green otherwise.
+pub fn charge_paint(s: &str, v: f64) -> ColoredString {
+    if v >= 50.0 {
+        s.green()
+    } else if v >= 20.0 {
+        s.yellow()
+    } else {
+        s.red()
+    }
+}
+
+/// Filled/empty bar of `width` cells for a percentage.
+pub fn pct_bar(pct: f64, width: usize) -> String {
+    let filled = ((pct.clamp(0.0, 100.0) / 100.0) * width as f64).round() as usize;
+    format!("{}{}", "█".repeat(filled), "░".repeat(width - filled))
+}
+
 /// Display width of `s`, ignoring the CSI (`ESC [ ... final`) color sequences this tool emits.
 pub fn visual_width(s: &str) -> usize {
     if !s.contains('\x1b') {
@@ -175,7 +202,7 @@ pub fn cmd_chart(
 ) -> Result<(), BatlensError> {
     let r = run_report_xml()?;
     if drain {
-        return chart_drain(&r);
+        return chart_drain(&r, width);
     }
     let mut pts = clean_history(&r);
     if current && let Some(i) = find_battery_replacement(&pts) {
@@ -186,7 +213,7 @@ pub fn cmd_chart(
         return Ok(());
     }
     let use_ascii = ascii && !braille;
-    let w = width.unwrap_or_else(default_chart_width);
+    let w = width.map_or_else(default_chart_width, |w| w.min(300));
     if w < 4 {
         let last_health = pts.last().map(|p| p.1).unwrap_or(0.0);
         println!(
@@ -224,7 +251,10 @@ pub fn cmd_chart(
             let r = ((i as f64 * (h - 1) as f64 / (nlab - 1) as f64).round() as usize).min(h - 1);
             label_at[r] = Some(vmax - i as f64 * (vmax - vmin) / (nlab - 1) as f64);
         }
-        println!("Battery health (full charge / design capacity)");
+        println!(
+            "{}",
+            title("Battery health (full charge / design capacity)")
+        );
         for r in 0..h {
             match label_at[r] {
                 Some(v) => println!(" {:>3.0}% │{}", v, rows[r]),
@@ -284,7 +314,10 @@ pub fn cmd_chart(
             rline[col] = Some(v);
         }
     }
-    println!("Battery health (full charge / design capacity)");
+    println!(
+        "{}",
+        title("Battery health (full charge / design capacity)")
+    );
     for (row, rline) in canvas.iter().enumerate() {
         let line: String = rline
             .iter()
@@ -332,7 +365,7 @@ pub fn cmd_chart(
 /// 28 columns: 15 date, 3 bar, 2 gap, 7 value, 1 spare.
 const NARROW_COLS: usize = 28;
 
-pub fn chart_drain(r: &Report) -> Result<(), BatlensError> {
+pub fn chart_drain(r: &Report, width: Option<usize>) -> Result<(), BatlensError> {
     let by_day = aggregate_drains_by_day(&r.drains);
     let mut days: Vec<(chrono::NaiveDate, f64)> = by_day
         .into_iter()
@@ -347,7 +380,10 @@ pub fn chart_drain(r: &Report) -> Result<(), BatlensError> {
     let days = &days[days.len().saturating_sub(7)..];
     let max_w = days.iter().map(|d| d.1).fold(0.0f64, f64::max).max(1.0);
     let term_w = terminal_columns();
-    println!("Daily avg discharge during drain segments (last 7 days)\n");
+    println!(
+        "{}\n",
+        title("Daily avg discharge during drain segments (last 7 days)")
+    );
 
     if term_w < NARROW_COLS {
         // Narrow terminal: one short line per day, no bars.
@@ -366,7 +402,7 @@ pub fn chart_drain(r: &Report) -> Result<(), BatlensError> {
     }
 
     let bar_avail = term_w.saturating_sub(NARROW_COLS);
-    let max_bar = bar_avail.clamp(3, 80);
+    let max_bar = width.map_or(bar_avail.clamp(3, 80), |w| w.clamp(3, 300));
 
     for (d, w) in days.iter().rev() {
         let norm = if max_w > 0.0 {
