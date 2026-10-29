@@ -553,10 +553,11 @@ pub fn parse_battery_unit_data(
         status.capacity as i64
     };
     let is_relative = (info.capabilities & BATTERY_CAPACITY_RELATIVE) != 0;
-    let percent = if is_relative {
-        (remaining_mwh as u32).min(100)
-    } else if full_mwh > 0 {
+    let percent = if full_mwh > 0 {
         ((100.0 * remaining_mwh as f64 / full_mwh as f64).round() as u32).min(100)
+    } else if is_relative {
+        // Full capacity unknown: relative values are conventionally on a 0-100 scale.
+        (remaining_mwh as u32).min(100)
     } else {
         0
     };

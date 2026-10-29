@@ -2405,6 +2405,36 @@ mod tests {
     }
 
     #[test]
+    fn test_relative_percent_uses_full_capacity_ratio() {
+        let mk = |cap: u32, full: u32| {
+            let status = BatteryStatus {
+                power_state: 0,
+                capacity: cap,
+                voltage: 12000,
+                rate: 0,
+            };
+            let info = BatteryInformation {
+                capabilities: BATTERY_CAPACITY_RELATIVE,
+                technology: 1,
+                reserved: [0; 3],
+                chemistry: *b"LION",
+                designed_capacity: 80,
+                full_charged_capacity: full,
+                default_alert1: 0,
+                default_alert2: 0,
+                critical_bias: 0,
+                cycle_count: 0,
+            };
+            parse_battery_unit_data(&status, &info, "B".into(), "M".into(), "S".into())
+                .0
+                .percent
+        };
+        assert_eq!(mk(40, 80), 50);
+        assert_eq!(mk(40, BATTERY_UNKNOWN_CAPACITY), 40);
+        assert_eq!(mk(0, 80), 0);
+    }
+
+    #[test]
     fn test_cache_not_applied_to_relative_unit() {
         let unit = BatteryUnit {
             device: "BAT0".to_string(),
