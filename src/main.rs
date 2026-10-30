@@ -417,11 +417,11 @@ fn cmd_info() -> Result<(), BatlensError> {
                 .filter(|s| !s.is_empty())
         };
         if let Some(s_num) = sn {
-            println!("    {} {s_num}", lab("Serial Number:"));
+            println!("  - {} {s_num}", lab("Serial Number:"));
         }
         if b.voltage_mv > 0 {
             println!(
-                "    {} {} ({})",
+                "  - {} {} ({})",
                 lab("Live Voltage :"),
                 Mv(b.voltage_mv),
                 if s.ac { "on AC power" } else { "on battery" }
@@ -429,7 +429,7 @@ fn cmd_info() -> Result<(), BatlensError> {
         }
         if b.rate_mw != 0 {
             println!(
-                "    {} {} ({})",
+                "  - {} {} ({})",
                 lab("Live Power   :"),
                 Mw(b.rate_mw).signed(),
                 if b.rate_mw > 0 {
@@ -446,21 +446,21 @@ fn cmd_info() -> Result<(), BatlensError> {
                 "N/A".to_string()
             }
         };
-        println!("    {} {}", lab("Design Cap   :"), detail(b.design_mwh));
+        println!("  - {} {}", lab("Design Cap   :"), detail(b.design_mwh));
         // Remaining is meaningless without a full-charge value (relative units).
         let remaining = if b.percent.is_some() {
             detail(b.remaining_mwh)
         } else {
             "N/A".to_string()
         };
-        println!("    {} {remaining}", lab("Remaining    :"));
-        println!("    {} {}", lab("Full Charge  :"), detail(b.full_mwh));
+        println!("  - {} {remaining}", lab("Remaining    :"));
+        println!("  - {} {}", lab("Full Charge  :"), detail(b.full_mwh));
         if b.design_mwh > 0 {
             let hv = 100.0 * b.full_mwh as f64 / b.design_mwh as f64;
             let hs = format!("{:.1}%", hv);
-            println!("    {} {}", lab("Health       :"), health_paint(&hs, hv));
+            println!("  - {} {}", lab("Health       :"), health_paint(&hs, hv));
         } else {
-            println!("    {} N/A", lab("Health       :"));
+            println!("  - {} N/A", lab("Health       :"));
         }
         let cycle = b.cycle_count.or_else(|| {
             matched_rep.and_then(|rb| rb.cycle_count).or_else(|| {
@@ -476,10 +476,10 @@ fn cmd_info() -> Result<(), BatlensError> {
             Some(c) => c.to_string(),
             None => "Unknown".to_string(),
         };
-        println!("    {} {cycle_str}", lab("Cycle Count  :"));
+        println!("  - {} {cycle_str}", lab("Cycle Count  :"));
         if b.low_alert_mwh > 0 || b.crit_alert_mwh > 0 {
             println!(
-                "    {} Low {}, Critical {}",
+                "  - {} Low {}, Critical {}",
                 lab("Alert Levels :"),
                 Mwh(b.low_alert_mwh as i64),
                 Mwh(b.crit_alert_mwh as i64)
