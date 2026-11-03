@@ -2,10 +2,11 @@ use chrono::{DateTime, Local, TimeDelta, Utc};
 use colored::{ColoredString, Colorize};
 use unicode_width::UnicodeWidthStr;
 
-use crate::stats::{aggregate_drains_by_day, clean_history, find_battery_replacement};
-use crate::sys::{default_chart_width, terminal_columns};
-use crate::types::*;
-use crate::xml::run_report_xml;
+use batlens_core::stats::{aggregate_drains_by_day, clean_history, find_battery_replacement};
+use batlens_core::types::*;
+use batlens_core::xml::run_report_xml;
+
+use crate::console::{default_chart_width, terminal_columns};
 
 pub fn health_paint(s: &str, v: f64) -> ColoredString {
     if v >= 90.0 {

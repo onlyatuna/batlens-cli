@@ -97,20 +97,19 @@ batlens chart --ascii   Block-character chart for fonts without braille glyphs
 
 ## Project layout
 
-- `src/main.rs` - CLI, `status` output, tests
-- `src/sys.rs` - Win32 battery IOCTL, console handling
-- `src/xml.rs` - `powercfg` execution, report cache, report parsing
-- `src/stats.rs` - replacement detection, drain aggregation, wear rate
-- `src/render.rs` - charts and terminal width handling
-- `src/types.rs` - data types, errors, design-capacity cache logic
+- `src/main.rs` - CLI, `status`/`info`/`report` output, tests
+- `src/console.rs` - console mode, code page, terminal width
+- `src/render.rs` - charts and bars
 - `src/out.rs` - buffered stdout
+- Battery reading, report parsing, statistics and cache logic live in
+  [batlens-core](https://github.com/onlyatuna/batlens-core).
 
 ## Tech stack
 
 - Rust 2024 edition
 - clap 4 (CLI)
 - chrono (time)
-- quick-xml 0.37 (report parsing)
+- batlens-core (battery data, report parsing)
 - colored 2 (terminal color)
 - unicode-width 0.2 (display width)
 - windows-sys 0.61 (Win32 API)

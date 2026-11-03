@@ -71,13 +71,23 @@ checksum = "f2032f911046de80f0a198e0901378627c33f59ea0ac00e363d481118bd70a53"
 name = "batlens-cli"
 version = "0.1.0"
 dependencies = [
+ "batlens-core",
  "chrono",
  "clap",
  "colored",
- "quick-xml",
  "unicode-width",
  "windows-sys 0.61.2",
  "winres",
+]
+
+[[package]]
+name = "batlens-core"
+version = "0.1.0"
+source = "git+https://github.com/onlyatuna/batlens-core?rev=eba4e07#eba4e07cd1d30302937647026b9d3b2c6262ad6a"
+dependencies = [
+ "chrono",
+ "quick-xml",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
